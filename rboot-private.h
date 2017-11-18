@@ -76,4 +76,12 @@ enum rst_reason {
 	REASON_EXT_SYS_RST      = 6
 };
 
+
+struct flash_config
+{
+	char *str;
+	uint32_t size;
+};
+
+
 #endif

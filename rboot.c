@@ -13,6 +13,45 @@
 #define UART_CLK_FREQ	(26000000 * 2)
 #endif
 
+
+const struct flash_config FLASH_CONFIG_MAP[] = {
+	{
+		.str = "512KB\r\n",
+		.size = 0x80000
+	},
+	{
+		.str = "256KB\r\n",
+		.size = 0x40000
+	},
+	{
+		.str = "1MB\r\n",
+		.size = 0x100000
+	},
+	{
+		.str = "2MB\r\n",
+		.size = 0x200000
+	},
+	{
+		.str = "4MB\r\n",
+		.size = 0x400000
+	},
+	{
+		.str = "2MB-c1\r\n",
+		.size = 0x200000
+	},
+	{
+		.str = "4MB-c1\r\n",
+		.size = 0x400000
+	},
+	{
+		.str = "8MB\r\n",
+		.size = 0x800000
+	},
+	{
+		.str = "16MB\r\n",
+		.size = 0x1000000
+	}
+};
 static uint32 check_image(uint32 readpos) {
 
 	uint8 buffer[BUFFER_SIZE];
@@ -201,31 +240,31 @@ static int perform_gpio_boot(rboot_config *romconf) {
 #ifdef BOOT_RTC_ENABLED
 uint32 system_rtc_mem(int32 addr, void *buff, int32 length, uint32 mode) {
 
-    int32 blocks;
+	int32 blocks;
 
-    // validate reading a user block
-    if (addr < 64) return 0;
-    if (buff == 0) return 0;
-    // validate 4 byte aligned
-    if (((uint32)buff & 0x3) != 0) return 0;
-    // validate length is multiple of 4
-    if ((length & 0x3) != 0) return 0;
+	// validate reading a user block
+	if (addr < 64) return 0;
+	if (buff == 0) return 0;
+	// validate 4 byte aligned
+	if (((uint32)buff & 0x3) != 0) return 0;
+	// validate length is multiple of 4
+	if ((length & 0x3) != 0) return 0;
 
-    // check valid length from specified starting point
-    if (length > (0x300 - (addr * 4))) return 0;
+	// check valid length from specified starting point
+	if (length > (0x300 - (addr * 4))) return 0;
 
-    // copy the data
-    for (blocks = (length >> 2) - 1; blocks >= 0; blocks--) {
-        volatile uint32 *ram = ((uint32*)buff) + blocks;
-        volatile uint32 *rtc = ((uint32*)0x60001100) + addr + blocks;
+	// copy the data
+	for (blocks = (length >> 2) - 1; blocks >= 0; blocks--) {
+		volatile uint32 *ram = ((uint32*)buff) + blocks;
+		volatile uint32 *rtc = ((uint32*)0x60001100) + addr + blocks;
 		if (mode == RBOOT_RTC_WRITE) {
 			*rtc = *ram;
 		} else {
 			*ram = *rtc;
 		}
-    }
+	}
 
-    return 1;
+	return 1;
 }
 #endif
 
@@ -314,31 +353,23 @@ uint32 NOINLINE find_image(void) {
 	// print and get flash size
 	ets_printf("Flash Size:   ");
 	flag = header->flags2 >> 4;
-	if (flag == 0) {
-		ets_printf("4 Mbit\r\n");
-		flashsize = 0x80000;
-	} else if (flag == 1) {
-		ets_printf("2 Mbit\r\n");
-		flashsize = 0x40000;
-	} else if (flag == 2) {
-		ets_printf("8 Mbit\r\n");
-		flashsize = 0x100000;
-	} else if (flag == 3) {
-		ets_printf("16 Mbit\r\n");
-#ifdef BOOT_BIG_FLASH
-		flashsize = 0x200000;
-#else
-		flashsize = 0x100000; // limit to 8Mbit
-#endif
-	} else if (flag == 4) {
-		ets_printf("32 Mbit\r\n");
-#ifdef BOOT_BIG_FLASH
-		flashsize = 0x400000;
-#else
-		flashsize = 0x100000; // limit to 8Mbit
-#endif
-	} else {
+
+	if(flag >= 0 && flag < 9)
+	{
+		ets_printf(FLASH_CONFIG_MAP[flag].str);
+		flashsize = FLASH_CONFIG_MAP[flag].size;
+
+		#ifndef BOOT_BIG_FLASH
+		if(flashsize > 0x100000)
+		{
+			flashsize = 0x100000;
+		}
+		#endif
+	}
+	else
+	{
 		ets_printf("unknown\r\n");
+		ets_printf("WARNING: Assuming total flash size is 512KB\r\n");
 		// assume at least 4mbit
 		flashsize = 0x80000;
 	}
