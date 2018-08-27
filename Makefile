@@ -3,7 +3,8 @@
 # https://github.com/raburton/esp8266
 #
 
-ESPTOOL2 ?= ../esptool2/esptool2
+ESPTOOL  ?= /opt/esp-open-sdk/esptool/esptool.py
+ESPTOOL2 ?= /opt/esp-open-sdk/esptool2/esptool2
 
 RBOOT_BUILD_BASE ?= build
 RBOOT_FW_BASE    ?= firmware
@@ -11,9 +12,13 @@ RBOOT_FW_BASE    ?= firmware
 ifndef XTENSA_BINDIR
 CC := xtensa-lx106-elf-gcc
 LD := xtensa-lx106-elf-gcc
+OBJDUMP := xtensa-lx106-elf-objdump
+ELF_SIZE := xtensa-lx106-elf-size
 else
 CC := $(addprefix $(XTENSA_BINDIR)/,xtensa-lx106-elf-gcc)
 LD := $(addprefix $(XTENSA_BINDIR)/,xtensa-lx106-elf-gcc)
+OBJDUMP := $(addprefix $(XTENSA_BINDIR)/,xtensa-lx106-elf-objdump)
+ELF_SIZE := $(addprefix $(XTENSA_BINDIR)/,xtensa-lx106-elf-size)
 endif
 
 ifeq ($(V),1)
@@ -63,6 +68,7 @@ ifneq ($(RBOOT_EXTRA_INCDIR),)
 endif
 CFLAGS += $(addprefix -I,.)
 
+SPI_SIZE = 4M
 ifeq ($(SPI_SIZE), 256K)
 	E2_OPTS += -256
 else ifeq ($(SPI_SIZE), 512K)
@@ -74,6 +80,8 @@ else ifeq ($(SPI_SIZE), 2M)
 else ifeq ($(SPI_SIZE), 4M)
 	E2_OPTS += -4096
 endif
+
+SPI_MODE = dio
 ifeq ($(SPI_MODE), qio)
 	E2_OPTS += -qio
 else ifeq ($(SPI_MODE), dio)
@@ -83,6 +91,8 @@ else ifeq ($(SPI_MODE), qout)
 else ifeq ($(SPI_MODE), dout)
 	E2_OPTS += -dout
 endif
+
+SPI_SPEED = 40
 ifeq ($(SPI_SPEED), 20)
 	E2_OPTS += -20
 else ifeq ($(SPI_SPEED), 26)
@@ -94,6 +104,14 @@ else ifeq ($(SPI_SPEED), 80)
 endif
 
 .SECONDARY:
+
+MEM_USAGE = \
+  'while (<>) { \
+      $$r += $$1 if /^\.(?:data|rodata|bss)\s+(\d+)/;\
+		  $$f += $$1 if /^\.(?:irom0\.text|text|data|rodata)\s+(\d+)/;\
+	 }\
+	 print "\# Memory usage\n";\
+	 print sprintf("\#  %-6s %6d bytes\n" x 2 ."\n", "Ram:", $$r, "Flash:", $$f);'
 
 #all: $(RBOOT_BUILD_BASE) $(RBOOT_FW_BASE) $(RBOOT_FW_BASE)/rboot.bin $(RBOOT_FW_BASE)/testload1.bin $(RBOOT_FW_BASE)/testload2.bin
 all: $(RBOOT_BUILD_BASE) $(RBOOT_FW_BASE) $(RBOOT_FW_BASE)/rboot.bin
@@ -126,11 +144,23 @@ $(RBOOT_BUILD_BASE)/%.o: %.c %.h
 
 $(RBOOT_BUILD_BASE)/%.elf: $(RBOOT_BUILD_BASE)/%.o
 	@echo "LD $@"
+#	@echo "LD -T$(LD_SCRIPT) $(LDFLAGS) -Wl,--start-group $^ -Wl,--end-group -o $@"
 	$(Q) $(LD) -T$(LD_SCRIPT) $(LDFLAGS) -Wl,--start-group $^ -Wl,--end-group -o $@
+	@echo "Section info:"
+	@$(OBJDUMP) -h -j .data -j .rodata -j .bss -j .text -j .irom0.text $@
+	@echo "------------------------------------------------------------------------------"
+	@echo "Size info:"
+	@$(ELF_SIZE) -A $@ |grep -v " 0$$" |grep .
+	@$(ELF_SIZE) -A $@ | perl -e $(MEM_USAGE)
+	@echo "------------------------------------------------------------------------------"
 
 $(RBOOT_FW_BASE)/%.bin: $(RBOOT_BUILD_BASE)/%.elf
 	@echo "E2 $@"
+	@echo $(ESPTOOL2) $(E2_OPTS) $< $@ .text .rodata
 	$(Q) $(ESPTOOL2) $(E2_OPTS) $< $@ .text .rodata
+	@echo "Image info:"
+	@$(ESPTOOL) image_info $@
+	@echo "------------------------------------------------------------------------------\n\n"
 
 clean:
 	@echo "RM $(RBOOT_BUILD_BASE) $(RBOOT_FW_BASE)"

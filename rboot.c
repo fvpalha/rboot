@@ -296,8 +296,8 @@ static uint8 calc_chksum(uint8 *start, uint8 *end) {
 // created on first boot or in case of corruption
 static uint8 default_config(rboot_config *romconf, uint32 flashsize) {
 	romconf->count = 2;
-	romconf->roms[0] = SECTOR_SIZE * (BOOT_CONFIG_SECTOR + 1);
-	romconf->roms[1] = (flashsize / 2) + (SECTOR_SIZE * (BOOT_CONFIG_SECTOR + 1));
+	romconf->roms[0] = 0x02000;
+	romconf->roms[1] = 0x82000;
 #ifdef BOOT_GPIO_ENABLED
 	romconf->mode = MODE_GPIO_ROM;
 #endif

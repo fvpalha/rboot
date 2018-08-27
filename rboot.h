@@ -23,7 +23,7 @@ extern "C" {
 //#define BOOT_NO_ASM
 
 // uncomment to have a checksum on the boot config
-//#define BOOT_CONFIG_CHKSUM
+#define BOOT_CONFIG_CHKSUM
 
 // uncomment to enable big flash support (>1MB)
 //#define BOOT_BIG_FLASH
@@ -49,7 +49,7 @@ extern "C" {
 
 // uncomment to include .irom0.text section in the checksum
 // roms must be built with esptool2 using -iromchksum option
-//#define BOOT_IROM_CHKSUM
+#define BOOT_IROM_CHKSUM
 
 // uncomment to add a boot delay, allows you time to connect
 // a terminal before rBoot starts to run and output messages
@@ -61,7 +61,7 @@ extern "C" {
 // (magic, version and chksum (if applicable) are included
 // for you automatically), see example at end of this file
 // and customise as required
-//#define BOOT_CUSTOM_DEFAULT_CONFIG
+#define BOOT_CUSTOM_DEFAULT_CONFIG
 
 // max number of roms in the config (defaults to 4), higher
 // values will use more ram at run time
@@ -97,7 +97,7 @@ extern "C" {
 #endif
 
 #ifndef MAX_ROMS
-#define MAX_ROMS 4
+#define MAX_ROMS 2
 #endif
 
 /** @brief  Structure containing rBoot configuration
@@ -147,8 +147,8 @@ typedef struct {
 #ifdef BOOT_CUSTOM_DEFAULT_CONFIG
 static uint8 default_config(rboot_config *romconf, uint32 flashsize) {
 	romconf->count = 2;
-	romconf->roms[0] = SECTOR_SIZE * (BOOT_CONFIG_SECTOR + 1);
-	romconf->roms[1] = (flashsize / 2) + (SECTOR_SIZE * (BOOT_CONFIG_SECTOR + 1));
+	romconf->roms[0] = 0x02000;
+	romconf->roms[1] = 0x82000;
 }
 #endif
 
